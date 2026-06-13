@@ -1,0 +1,37 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      sandbox:
+        description: "Publish to Zenodo sandbox instead of production"
+        type: boolean
+        default: true
+
+jobs:
+  mint-doi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Build release artifact
+        run: |
+          zip -qr release.zip misty scripts schemas docs README.md LICENSE
+      - name: Publish to Zenodo
+        env:
+          ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
+          ZENODO_SANDBOX: ${{ (github.event_name == 'workflow_dispatch' && inputs.sandbox) && '1' || '' }}
+        run: |
+          misty publish -m examples/romenagri/misty.json \
+            -f release.zip --output result.json
+          echo "DOI=$(jq -r .doi result.json)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: doi-package
+          path: |
+            doi-package/
+            result.json

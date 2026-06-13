@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ilm.org/schemas/misty-metadata.schema.json",
+  "title": "Misty DOI canonical metadata",
+  "description": "The single record an upstream workflow produces. Misty derives Zenodo, DataCite, codemeta, and CITATION.cff from it.",
+  "type": "object",
+  "required": ["title", "description", "creators", "license", "upload_type"],
+  "additionalProperties": true,
+  "properties": {
+    "title": {"type": "string", "minLength": 1},
+    "subtitle": {"type": "string"},
+    "version": {"type": "string"},
+    "upload_type": {
+      "type": "string",
+      "enum": ["publication", "poster", "presentation", "dataset", "image",
+               "video", "software", "lesson", "physicalobject", "workflow", "other"]
+    },
+    "publication_type": {"type": "string"},
+    "description": {"type": "string", "minLength": 1},
+    "license": {"type": "string", "minLength": 1},
+    "access_right": {
+      "type": "string",
+      "enum": ["open", "embargoed", "restricted", "closed"],
+      "default": "open"
+    },
+    "embargo_date": {"type": "string", "format": "date"},
+    "language": {"type": "string"},
+    "creators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "description": "Family, Given"},
+          "affiliation": {"type": "string"},
+          "orcid": {"type": "string"},
+          "gnd": {"type": "string"}
+        }
+      }
+    },
+    "keywords": {"type": "array", "items": {"type": "string"}},
+    "communities": {
+      "type": "array",
+      "items": {"type": "object", "properties": {"identifier": {"type": "string"}}}
+    },
+    "grants": {"type": "array"},
+    "related_identifiers": {"type": "array"},
+    "references": {"type": "array", "items": {"type": "string"}},
+    "dates": {"type": "array"},
+    "notes": {"type": "string"},
+    "doi": {"type": ["string", "null"]},
+    "repository": {"type": "string"},
+    "programming_language": {"type": "array", "items": {"type": "string"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"upload_type": {"const": "publication"}}},
+      "then": {"required": ["publication_type"]}
+    },
+    {
+      "if": {"properties": {"access_right": {"const": "embargoed"}}},
+      "then": {"required": ["embargo_date"]}
+    }
+  ]
+}

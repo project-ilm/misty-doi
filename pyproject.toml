@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "misty-doi"
+version = "1.0.0"
+description = "Automation-first DOI minting and research/artifact publication packaging. Muh Mitha Kijiye!"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "GPL-3.0-or-later"}
+authors = [{name = "Abhishek Choudhary"}]
+keywords = ["doi", "zenodo", "datacite", "codemeta", "citation", "opentimestamps", "research", "publication", "reproducibility"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = ["requests>=2.25"]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=5.4"]
+schema = ["jsonschema>=4.0"]
+ots = ["opentimestamps-client>=0.7"]
+all = ["PyYAML>=5.4", "jsonschema>=4.0", "opentimestamps-client>=0.7"]
+dev = ["pytest>=7", "PyYAML>=5.4", "jsonschema>=4.0"]
+
+[project.urls]
+Homepage = "https://project-ilm.github.io/misty-doi/"
+Repository = "https://github.com/project-ilm/misty-doi"
+
+[project.scripts]
+misty = "misty.cli:main"
+
+[tool.setuptools]
+packages = ["misty"]
+
+[tool.setuptools.package-data]
+misty = ["../schemas/*.json"]

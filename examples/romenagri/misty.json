@@ -1,0 +1,27 @@
+{
+  "title": "Romenagri / ILM — Reversible Multiscript Substrate for Systems Programming (Hindawi Programming System, 2004)",
+  "version": "1.0.0",
+  "upload_type": "software",
+  "description": "<p>Romenagri (GPL 2003): reversible, ASCII-7, diacritic-free, C-identifier-legal transliteration kernel unifying Brahmi, Perso-Arabic, and NW-Semitic script families. First realised in the Hindawi Programming System (public release 15 August 2004): the first complete non-English systems-programming stack — C, C++, Assembly, Lex, Yacc, BASIC, JVM-target in Indic languages through an unmodified GCC toolchain. 68-language keyword registry (201 constructs), 45 Brahmi-derived script projection tables, four language bindings (C, JS, Java/Android, WASM). Measured reversibility: 98.68% reversible-or-canonical on exhaustive [a-z]^1..4 (2003-04 kernel). Copyright (C) 1993-2026 Abhishek Choudhary.</p>",
+  "license": "gpl-3.0",
+  "access_right": "open",
+  "language": "eng",
+  "creators": [
+    {"name": "Choudhary, Abhishek", "affiliation": "AyeAI", "orcid": "0000-0000-0000-0000"}
+  ],
+  "keywords": [
+    "transliteration", "Indic scripts", "systems programming",
+    "linguistic equity", "Romenagri", "Hindawi", "ILM", "reversible",
+    "multilingual"
+  ],
+  "programming_language": ["C", "C++", "Assembly", "JavaScript", "Java", "WebAssembly"],
+  "repository": "https://github.com/project-ilm/romenagri",
+  "related_identifiers": [
+    {"relation": "isSupplementTo", "identifier": "https://github.com/project-ilm/romenagri", "resource_type": "software"},
+    {"relation": "isVersionOf", "identifier": "https://sourceforge.net/projects/hindawi", "resource_type": "software"},
+    {"relation": "isSupplementTo", "identifier": "https://savannah.nongnu.org/projects/hindawi", "resource_type": "software"}
+  ],
+  "dates": [
+    {"date": "2004-08-15", "type": "Created", "description": "Initial public release of Hindawi Programming System v1"}
+  ]
+}

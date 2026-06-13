@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+doi-package/
+result.json
+*.zip
+*.zip.sha256
+*.ots
+.venv/
+.env
+ZENODO_DOI.txt
