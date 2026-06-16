@@ -1,0 +1,17 @@
+{
+  "title": "Misty DOI — Automation-first DOI minting and research artifact publication packaging",
+  "version": "1.0.1",
+  "upload_type": "software",
+  "description": "<p>Misty DOI turns a single canonical metadata file into a complete, reproducible publication package (Zenodo deposit, DataCite record, codemeta.json, CITATION.cff, SHA-256 checksums, OpenTimestamps proofs) and mints a DOI on Zenodo. Browser-first, CLI-first, automation-first; no backend, no subscription, no vendor lock-in. The token is read only from the environment or held only in the browser tab. General-purpose: publishes software, datasets, papers, posters, presentations, images, videos, lessons, and workflows for any author. Copyright (C) 1993-2026 Abhishek Choudhary.</p>",
+  "license": "gpl-3.0",
+  "access_right": "open",
+  "language": "eng",
+  "creators": [{"name": "Choudhary, Abhishek", "affiliation": "AyeAI"}],
+  "keywords": ["DOI","Zenodo","DataCite","codemeta","CITATION.cff","OpenTimestamps","reproducibility","research software","FAIR","metadata"],
+  "programming_language": ["Python"],
+  "repository": "https://github.com/project-ilm/misty-doi",
+  "related_identifiers": [
+    {"relation": "isSupplementTo", "identifier": "https://github.com/project-ilm/misty-doi", "resource_type": "software"},
+    {"relation": "isIdenticalTo", "identifier": "https://pypi.org/project/misty-doi/", "resource_type": "software"}
+  ]
+}

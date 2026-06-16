@@ -1,5 +1,9 @@
 # Misty DOI
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20719388.svg)](https://doi.org/10.5281/zenodo.20719388)
+
+
+
 ### *Muh Mitha Kijiye!*&trade;
 
 Browser-first, CLI-first, **automation-first** DOI minting and research/artifact

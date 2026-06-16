@@ -15,3 +15,5 @@ keywords:
   - "reproducibility"
   - "research software"
 repository-code: "https://github.com/project-ilm/misty-doi"
+
+doi: "10.5281/zenodo.20719388"
