@@ -1,0 +1,12 @@
+{
+  "title": "Example Tool — replace this with your project",
+  "version": "1.0.0",
+  "upload_type": "software",
+  "description": "A short abstract of your software. Misty publishes ANY artifact (software, dataset, paper, poster, video...) for ANY author. Replace every field, then: misty publish -m misty.json -f your-release.zip",
+  "license": "mit",
+  "access_right": "open",
+  "language": "eng",
+  "creators": [{"name": "Family, Given", "affiliation": "Your Org", "orcid": ""}],
+  "keywords": ["example", "replace-me"],
+  "repository": "https://github.com/your/repo"
+}

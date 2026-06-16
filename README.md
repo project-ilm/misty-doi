@@ -15,6 +15,10 @@ browser with no server.
 
 ---
 
+## General-purpose
+
+Misty mints DOIs and builds publication packages for **any** artifact (software, dataset, publication, poster, presentation, image, video, lesson, workflow) and **any** author. Start with `misty init` or copy an `examples/` template.
+
 ## The one idea
 
 **Separate metadata from mechanism.** Any workflow that wants a DOI only has to:

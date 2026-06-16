@@ -4,18 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "misty-doi"
-version = "1.0.0"
+version = "1.0.1"
 description = "Automation-first DOI minting and research/artifact publication packaging. Muh Mitha Kijiye!"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "GPL-3.0-or-later"}
+license = "GPL-3.0-or-later"
 authors = [{name = "Abhishek Choudhary"}]
 keywords = ["doi", "zenodo", "datacite", "codemeta", "citation", "opentimestamps", "research", "publication", "reproducibility"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering",
 ]

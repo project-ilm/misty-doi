@@ -1,0 +1,10 @@
+{
+  "title": "Example Dataset — replace this",
+  "version": "1.0.0",
+  "upload_type": "dataset",
+  "description": "Demonstrates publishing a dataset (not software). Replace with your own metadata.",
+  "license": "cc-by-4.0",
+  "access_right": "open",
+  "creators": [{"name": "Family, Given", "affiliation": "Your Org"}],
+  "keywords": ["example", "dataset"]
+}

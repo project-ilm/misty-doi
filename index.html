@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Misty DOI — Muh Mitha Kijiye!</title>
+<style>
+  :root{
+    --ink:#15131f; --ink2:#262135; --paper:#f5efe2; --paper2:#ece3cf;
+    --seal:#c4452f; --seal-deep:#8f2c1d; --gold:#c79a3b; --indigo:#2e2a5a;
+    --line:#cdbfa0; --muted:#6b6450; --ok:#2f6d4f;
+    --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
+    --serif:"Spectral","Iowan Old Style",Georgia,serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,800;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+    background-image:radial-gradient(circle at 1px 1px,rgba(46,42,90,.05) 1px,transparent 0);
+    background-size:22px 22px;line-height:1.5}
+  a{color:var(--seal-deep)}
+  header{border-bottom:2px solid var(--ink);padding:28px 20px 22px;max-width:1080px;margin:0 auto}
+  .brandrow{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  h1{font-size:clamp(2.2rem,6vw,3.6rem);font-weight:800;letter-spacing:-.02em;margin:0;line-height:.95}
+  .tag{font-style:italic;color:var(--seal-deep);font-size:1.15rem}
+  .eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--muted)}
+  .lede{max-width:60ch;margin:14px 0 0;color:var(--ink2)}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 80px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  @media(max-width:840px){main{grid-template-columns:1fr}}
+  section{background:var(--paper2);border:1px solid var(--line);border-radius:2px;padding:20px}
+  h2{font-size:.78rem;font-family:var(--mono);letter-spacing:.24em;text-transform:uppercase;
+    color:var(--ink);margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  h2 .n{color:var(--seal)}
+  label{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+  input,select,textarea{width:100%;font-family:var(--mono);font-size:.85rem;background:var(--paper);
+    border:1px solid var(--line);border-radius:2px;padding:8px 10px;color:var(--ink)}
+  textarea{min-height:78px;resize:vertical;font-family:var(--serif);font-size:.95rem}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--indigo);outline-offset:1px;border-color:var(--indigo)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .creator{border:1px dashed var(--line);padding:10px;margin-top:8px;border-radius:2px;position:relative}
+  .btn{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+    border:1px solid var(--ink);background:var(--paper);color:var(--ink);padding:9px 14px;border-radius:2px;transition:.12s}
+  .btn:hover{background:var(--ink);color:var(--paper)}
+  .btn.seal{background:var(--seal);border-color:var(--seal-deep);color:var(--paper)}
+  .btn.seal:hover{background:var(--seal-deep)}
+  .btn.ghost{border-style:dashed}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  pre{font-family:var(--mono);font-size:.74rem;background:var(--ink);color:#e7e1d0;padding:14px;border-radius:2px;
+    overflow:auto;max-height:340px;margin:0;line-height:1.45}
+  .tabs{display:flex;gap:0;margin-bottom:10px;flex-wrap:wrap}
+  .tab{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;padding:6px 11px;
+    border:1px solid var(--line);border-bottom:none;background:var(--paper2);cursor:pointer;color:var(--muted)}
+  .tab.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .warn{font-size:.82rem;background:#f7e9c6;border:1px solid var(--gold);border-left:4px solid var(--seal);padding:10px 12px;border-radius:2px;margin:10px 0}
+  .pillrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .pill{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;border:1px solid var(--ink);padding:4px 9px;border-radius:999px;cursor:pointer;background:var(--paper)}
+  .pill:hover{background:var(--ink);color:var(--paper)}
+  .note{font-size:.78rem;color:var(--muted);margin-top:6px}
+  .full{grid-column:1/-1}
+  /* the signature: a wax seal that presses on package build */
+  .seal-mark{width:96px;height:96px;border-radius:50%;background:
+    radial-gradient(circle at 38% 34%,var(--seal),var(--seal-deep) 70%);
+    color:var(--paper);display:grid;place-items:center;text-align:center;
+    font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25),inset 0 0 18px rgba(0,0,0,.35);
+    transform:scale(.0);transition:transform .35s cubic-bezier(.2,1.4,.4,1);margin:0 auto}
+  .seal-mark.pressed{transform:scale(1)}
+  .seal-mark b{display:block;font-size:1rem;letter-spacing:.04em}
+  footer{max-width:1080px;margin:0 auto;padding:20px;border-top:1px solid var(--line);font-size:.76rem;color:var(--muted);font-family:var(--mono)}
+  .ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Project ILM · DOI &amp; publication packaging</div>
+  <div class="brandrow">
+    <h1>Misty&nbsp;DOI</h1>
+    <span class="tag">Muh Mitha Kijiye!&trade;</span>
+  </div>
+  <p class="lede">Publish research. Mint DOIs. Preserve knowledge. Fill the record once;
+  Misty presses it into Zenodo, DataCite, codemeta, and a citation file — entirely in your
+  browser. No backend, no telemetry, your token never leaves this tab.</p>
+</header>
+
+<main>
+  <!-- LEFT: the record -->
+  <section>
+    <h2>The record <span class="n">01</span></h2>
+    <label>Title</label>
+    <input id="f_title" placeholder="Reversible Multiscript Substrate…">
+    <div class="row">
+      <div><label>Version</label><input id="f_version" value="1.0.0"></div>
+      <div><label>Upload type</label>
+        <select id="f_type">
+          <option>software</option><option>dataset</option><option>publication</option>
+          <option>poster</option><option>presentation</option><option>image</option>
+          <option>video</option><option>lesson</option><option>workflow</option><option>other</option>
+        </select></div>
+    </div>
+    <label>Abstract <span class="note">(HTML allowed)</span></label>
+    <textarea id="f_desc" placeholder="What the work is, in one paragraph."></textarea>
+    <div class="row">
+      <div><label>License (Zenodo id)</label><input id="f_license" value="gpl-3.0"></div>
+      <div><label>Access</label>
+        <select id="f_access"><option>open</option><option>embargoed</option><option>restricted</option><option>closed</option></select></div>
+    </div>
+    <label>Keywords <span class="note">(comma-separated)</span></label>
+    <input id="f_keywords" placeholder="transliteration, Indic scripts, reversible">
+    <label>Repository URL <span class="note">(optional)</span></label>
+    <input id="f_repo" placeholder="https://github.com/project-ilm/…">
+
+    <label>Creators</label>
+    <div id="creators"></div>
+    <div class="btnrow"><button class="btn ghost" onclick="addCreator()">+ Add creator</button>
+      <button class="btn ghost" onclick="loadRomenagri()">Load Romenagri example</button></div>
+  </section>
+
+  <!-- RIGHT: outputs -->
+  <section>
+    <h2>Derived files <span class="n">02</span></h2>
+    <div class="tabs" id="tabs"></div>
+    <pre id="out">Fill the record, then build.</pre>
+    <div class="btnrow">
+      <button class="btn" onclick="downloadCurrent()">Download this file</button>
+      <button class="btn" onclick="copyCurrent()">Copy</button>
+      <button class="btn seal" onclick="buildPackage()">Build package &nbsp;⊙</button>
+    </div>
+    <div id="sealwrap" style="margin-top:18px"></div>
+  </section>
+
+  <!-- AI assistant -->
+  <section>
+    <h2>Metadata assistant <span class="n">03</span></h2>
+    <p class="note">No API calls. Misty drafts a prompt from your record; you paste it into any model and bring the answer back.</p>
+    <div class="pillrow">
+      <span class="pill" onclick="aiPrompt('claude')">Claude</span>
+      <span class="pill" onclick="aiPrompt('chatgpt')">ChatGPT</span>
+      <span class="pill" onclick="aiPrompt('gemini')">Gemini</span>
+      <span class="pill" onclick="aiPrompt('local')">Local LLM</span>
+    </div>
+    <pre id="ai" style="margin-top:12px;max-height:220px">Pick a model to generate a drafting prompt.</pre>
+    <div class="btnrow"><button class="btn" onclick="copyAI()">Copy prompt</button>
+      <button class="btn" id="ai_open" onclick="openAI()" style="display:none">Open Claude</button></div>
+  </section>
+
+  <!-- Publish -->
+  <section>
+    <h2>Mint the DOI <span class="n">04</span></h2>
+    <div class="warn"><b>Your token stays here.</b> It is held only in this tab's memory,
+      sent only to Zenodo over HTTPS, and never to Project ILM. Prefer the CLI for unattended publishing.</div>
+    <label>Zenodo access token</label>
+    <input id="z_token" type="password" placeholder="paste token (deposit:write)">
+    <label><input type="checkbox" id="z_sandbox" style="width:auto;margin-right:6px">Use sandbox.zenodo.org (test DOIs)</label>
+    <label>Artifact file</label>
+    <input type="file" id="z_file">
+    <div class="btnrow"><button class="btn seal" onclick="publish()">Create deposition &amp; publish</button></div>
+    <pre id="z_log" style="margin-top:12px;max-height:200px">Idle.</pre>
+  </section>
+</main>
+
+<footer>
+  Misty DOI v1.0 · Project ILM · GPL-3.0-or-later · Copyright © 1993–2026 Abhishek Choudhary ·
+  <a href="https://github.com/project-ilm/misty-doi">source</a>
+</footer>
+
+<script>
+/* ---- license map mirrors misty/transform.py ---- */
+const SPDX={'gpl-3.0':'GPL-3.0-or-later','gpl-2.0':'GPL-2.0-or-later','lgpl-3.0':'LGPL-3.0-or-later',
+ 'agpl-3.0':'AGPL-3.0-or-later','apache-2.0':'Apache-2.0','mit':'MIT','bsd-3-clause':'BSD-3-Clause',
+ 'cc-by-4.0':'CC-BY-4.0','cc-by-sa-4.0':'CC-BY-SA-4.0','cc0-1.0':'CC0-1.0'};
+const DCTYPE={software:'Software',dataset:'Dataset',publication:'Text',poster:'Text',presentation:'Text',
+ image:'Image',video:'Audiovisual',workflow:'Workflow',lesson:'Text',physicalobject:'PhysicalObject',other:'Other'};
+const spdx=l=>SPDX[(l||'').toLowerCase()]||l;
+const stripHtml=s=>(s||'').replace(/<[^>]+>/g,'').trim();
+const splitName=n=>{const i=(n||'').indexOf(', ');return i<0?[n.trim(),'']:[n.slice(0,i).trim(),n.slice(i+2).trim()];};
+
+let creators=[];
+function addCreator(name='',aff='',orcid=''){creators.push({name,aff,orcid});renderCreators();}
+function renderCreators(){
+  const box=document.getElementById('creators');box.innerHTML='';
+  creators.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='creator';
+    d.innerHTML=`<div class="row"><div><label>Name (Family, Given)</label>
+      <input value="${c.name.replace(/"/g,'&quot;')}" oninput="creators[${i}].name=this.value"></div>
+      <div><label>Affiliation</label><input value="${c.aff}" oninput="creators[${i}].aff=this.value"></div></div>
+      <label>ORCID</label><input value="${c.orcid}" oninput="creators[${i}].orcid=this.value">
+      <div class="btnrow"><button class="btn ghost" onclick="creators.splice(${i},1);renderCreators()">remove</button></div>`;
+    box.appendChild(d);
+  });
+}
+
+function record(){
+  const kw=document.getElementById('f_keywords').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const m={
+    title:document.getElementById('f_title').value,
+    version:document.getElementById('f_version').value||'1.0.0',
+    upload_type:document.getElementById('f_type').value,
+    description:document.getElementById('f_desc').value,
+    license:document.getElementById('f_license').value,
+    access_right:document.getElementById('f_access').value,
+    language:'eng',
+    keywords:kw,
+    creators:creators.filter(c=>c.name).map(c=>{const o={name:c.name};if(c.aff)o.affiliation=c.aff;if(c.orcid)o.orcid=c.orcid;return o;})
+  };
+  const repo=document.getElementById('f_repo').value;if(repo)m.repository=repo;
+  return m;
+}
+
+/* ---- transforms mirror the Python engine ---- */
+function toZenodo(m){const z={...m};delete z.repository;
+  z.creators=m.creators.map(c=>{const o={name:c.name};if(c.affiliation)o.affiliation=c.affiliation;if(c.orcid)o.orcid=c.orcid;return o;});
+  Object.keys(z).forEach(k=>{const v=z[k];if(v===''||v==null||(Array.isArray(v)&&!v.length))delete z[k];});
+  return {metadata:z};}
+function toCodemeta(m){return clean({'@context':'https://doi.org/10.5063/schema/codemeta-2.0','@type':'SoftwareSourceCode',
+  name:m.title,description:m.description,version:m.version,license:'https://spdx.org/licenses/'+spdx(m.license),
+  keywords:m.keywords,codeRepository:m.repository,dateModified:new Date().toISOString().slice(0,10),
+  author:m.creators.map(c=>{const[f,g]=splitName(c.name);const a={'@type':'Person',familyName:f};if(g)a.givenName=g;
+    if(c.orcid)a['@id']='https://orcid.org/'+c.orcid;if(c.affiliation)a.affiliation={'@type':'Organization',name:c.affiliation};return a;})});}
+function toDatacite(m){return clean({schemaVersion:'http://datacite.org/schema/kernel-4',
+  types:{resourceTypeGeneral:DCTYPE[m.upload_type]||'Other',resourceType:m.upload_type},
+  titles:[{title:m.title}],publisher:'Zenodo',publicationYear:String(new Date().getFullYear()),version:m.version,
+  subjects:m.keywords.map(k=>({subject:k})),
+  descriptions:[{description:stripHtml(m.description),descriptionType:'Abstract'}],
+  rightsList:[{rights:spdx(m.license),rightsIdentifier:spdx(m.license),rightsIdentifierScheme:'SPDX'}],
+  creators:m.creators.map(c=>{const[f,g]=splitName(c.name);const e={name:c.name,nameType:'Personal',familyName:f};
+    if(g)e.givenName=g;if(c.affiliation)e.affiliation=[{name:c.affiliation}];
+    if(c.orcid)e.nameIdentifiers=[{nameIdentifier:'https://orcid.org/'+c.orcid,nameIdentifierScheme:'ORCID',schemeUri:'https://orcid.org'}];return e;})});}
+function toCFF(m){const yq=s=>'"'+String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  let L=['cff-version: "1.2.0"','message: "If you use this software, please cite it as below."',
+    'title: '+yq(m.title),'version: '+yq(m.version),'abstract: '+yq(stripHtml(m.description)),'authors:'];
+  m.creators.forEach(c=>{const[f,g]=splitName(c.name);L.push('  - family-names: '+yq(f));
+    if(g)L.push('    given-names: '+yq(g));if(c.orcid)L.push('    orcid: '+yq('https://orcid.org/'+c.orcid));
+    if(c.affiliation)L.push('    affiliation: '+yq(c.affiliation));});
+  L.push('license: '+yq(spdx(m.license)));
+  if(m.keywords.length){L.push('keywords:');m.keywords.forEach(k=>L.push('  - '+yq(k)));}
+  if(m.repository)L.push('repository-code: '+yq(m.repository));
+  return L.join('\n');}
+function clean(o){Object.keys(o).forEach(k=>{const v=o[k];if(v===''||v==null||(Array.isArray(v)&&!v.length))delete o[k];});return o;}
+
+const VIEWS=[['misty.json',m=>JSON.stringify(m,null,2)],
+ ['zenodo.json',m=>JSON.stringify(toZenodo(m),null,2)],
+ ['datacite.json',m=>JSON.stringify(toDatacite(m),null,2)],
+ ['codemeta.json',m=>JSON.stringify(toCodemeta(m),null,2)],
+ ['CITATION.cff',m=>toCFF(m)]];
+let view=0;
+function renderTabs(){const t=document.getElementById('tabs');t.innerHTML='';
+  VIEWS.forEach((v,i)=>{const b=document.createElement('span');b.className='tab'+(i===view?' on':'');
+    b.textContent=v[0];b.onclick=()=>{view=i;renderTabs();renderOut();};t.appendChild(b);});}
+function renderOut(){document.getElementById('out').textContent=VIEWS[view][1](record());}
+function downloadCurrent(){const[name,fn]=VIEWS[view];dl(name,fn(record()));}
+function copyCurrent(){navigator.clipboard.writeText(VIEWS[view][1](record()));}
+function dl(name,text){const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;a.click();}
+
+function buildPackage(){VIEWS.forEach(([n,fn])=>dl(n,fn(record())));
+  const w=document.getElementById('sealwrap');
+  w.innerHTML='<div class="seal-mark"><span>PROJECT ILM<b>DOI</b>SEALED</span></div>';
+  requestAnimationFrame(()=>w.querySelector('.seal-mark').classList.add('pressed'));}
+
+/* ---- AI prompts ---- */
+let aiText='';
+function aiPrompt(model){const m=record();
+  aiText=`You are helping prepare research-deposit metadata. Given the draft below, return a single JSON object matching this canonical schema (keys: title, version, upload_type, description, license, access_right, language, keywords, creators[{name:"Family, Given",affiliation,orcid}], repository). Improve the abstract for clarity and indexing; suggest 8-12 precise keywords; keep all facts. Return JSON only, no prose.\n\nDRAFT:\n`+JSON.stringify(m,null,2);
+  document.getElementById('ai').textContent=aiText;
+  const ob=document.getElementById('ai_open');
+  if(model==='claude'){ob.style.display='';ob.textContent='Open Claude';ob.dataset.url='https://claude.ai/new';}
+  else if(model==='chatgpt'){ob.style.display='';ob.textContent='Open ChatGPT';ob.dataset.url='https://chat.openai.com/';}
+  else if(model==='gemini'){ob.style.display='';ob.textContent='Open Gemini';ob.dataset.url='https://gemini.google.com/';}
+  else ob.style.display='none';}
+function copyAI(){navigator.clipboard.writeText(aiText);}
+function openAI(){const u=document.getElementById('ai_open').dataset.url;if(u){copyAI();window.open(u,'_blank');}}
+
+/* ---- browser publish (same flow as the CLI) ---- */
+async function publish(){
+  const token=document.getElementById('z_token').value.trim();
+  const file=document.getElementById('z_file').files[0];
+  const log=document.getElementById('z_log');const say=t=>{log.textContent+='\n'+t;};
+  log.textContent='[misty] starting';
+  if(!token){say('[misty] ERROR: no token (exit 3)');return;}
+  if(!file){say('[misty] ERROR: choose a file (exit 2)');return;}
+  const sandbox=document.getElementById('z_sandbox').checked;
+  const API=sandbox?'https://sandbox.zenodo.org/api':'https://zenodo.org/api';
+  const H={'Authorization':'Bearer '+token};
+  try{
+    say('[misty] creating deposition…');
+    let r=await fetch(API+'/deposit/depositions',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok)throw('create '+r.status+' '+await r.text());
+    const dep=await r.json();const id=dep.id,bucket=dep.links.bucket;
+    say('[misty] deposition '+id);
+    say('[misty] uploading '+file.name+'…');
+    r=await fetch(bucket+'/'+encodeURIComponent(file.name),{method:'PUT',headers:H,body:file});
+    if(!r.ok)throw('upload '+r.status+' '+await r.text());
+    say('[misty] setting metadata…');
+    r=await fetch(API+'/deposit/depositions/'+id,{method:'PUT',headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify(toZenodo(record()))});
+    if(!r.ok)throw('metadata '+r.status+' '+await r.text());
+    say('[misty] publishing…');
+    r=await fetch(API+'/deposit/depositions/'+id+'/actions/publish',{method:'POST',headers:H});
+    const out=await r.json();
+    if(!r.ok)throw('publish '+r.status+' '+JSON.stringify(out));
+    say('[misty] PUBLISHED ✓  DOI: '+out.doi);
+    say('[misty] record: '+(out.links&&out.links.record_html||''));
+    buildPackage();
+  }catch(e){say('[misty] ERROR: '+e+' (exit 4)');}
+}
+
+/* ---- example loader ---- */
+function loadRomenagri(){
+  document.getElementById('f_title').value='Romenagri / ILM — Reversible Multiscript Substrate for Systems Programming (Hindawi Programming System, 2004)';
+  document.getElementById('f_desc').value='Romenagri (GPL 2003): reversible, ASCII-7, diacritic-free, C-identifier-legal transliteration kernel unifying Brahmi, Perso-Arabic, and NW-Semitic script families. First realised in the Hindawi Programming System (public release 15 August 2004).';
+  document.getElementById('f_license').value='gpl-3.0';
+  document.getElementById('f_keywords').value='transliteration, Indic scripts, systems programming, Romenagri, Hindawi, ILM, reversible';
+  document.getElementById('f_repo').value='https://github.com/project-ilm/romenagri';
+  creators=[{name:'Choudhary, Abhishek',aff:'AyeAI',orcid:''}];renderCreators();renderOut();
+}
+
+['f_title','f_version','f_type','f_desc','f_license','f_access','f_keywords','f_repo'].forEach(id=>
+  document.getElementById(id).addEventListener('input',renderOut));
+addCreator('Family, Given','','');renderTabs();renderOut();
+</script>
+</body>
+</html>

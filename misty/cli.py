@@ -179,7 +179,7 @@ def cmd_publish(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="misty",
-        description="Misty DOI — Muh Mitha Kijiye!\u2122  Automation-first DOI minting (Project ILM).",
+        description="Misty DOI — Muh Mitha Kijiye!\u2122  Automation-first DOI minting.",
     )
     p.add_argument("--version", action="version", version=f"misty-doi {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
