@@ -7,7 +7,7 @@ name = "misty-doi"
 version = "1.0.1"
 description = "Automation-first DOI minting and research/artifact publication packaging. Muh Mitha Kijiye!"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "GPL-3.0-or-later"
 authors = [{name = "Abhishek Choudhary"}]
 keywords = ["doi", "zenodo", "datacite", "codemeta", "citation", "opentimestamps", "research", "publication", "reproducibility"]
