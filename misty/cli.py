@@ -54,7 +54,7 @@ def cmd_init(args) -> int:
         return 1
     template = {
         "title": "",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "upload_type": "software",
         "description": "",
         "license": "gpl-3.0",

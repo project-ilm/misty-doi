@@ -1,0 +1,9 @@
+{
+  "title": "Romenagri — reversible ASCII-7 transliteration kernel",
+  "upload_type": "software",
+  "description": "Reversible, diacritic-free romanisation across Brahmi, Perso-Arabic, and Northwest Semitic script families. The substrate for linguistic equity in the AGI era.",
+  "creators": [{"name": "Choudhary, Abhishek"}],
+  "license": "GPL-3.0-or-later",
+  "access_right": "open",
+  "keywords": ["transliteration", "ILM", "Romenagri", "multiscript"]
+}
