@@ -1,0 +1,50 @@
+###############################################################################
+# Edit these
+###############################################################################
+
+REPO="obonac/research"
+REPO_DIR="research"
+
+TITLE="A Five-Dimensional Orthogonal State Space of Human Mentation"
+
+DESCRIPTION="Academic research poster proposing the Five-Dimensional Orthogonal Mentation Manifold (5DOMM): a mathematical state-space framework for modeling human mentation, Mentative Identity, cognitive development, trajectory geometry, and the open question of whether five orthogonal dimensions are sufficient for a mathematical theory of self."
+
+VERSION="1.0.0"
+
+LICENSE="gpl-3.0"
+
+ACCESS="open"
+
+AUTHOR="Choudhary, Abhishek"
+
+AFFILIATION=""
+
+ORCID=""
+
+UPLOAD_TYPE="publication"
+
+# Until Misty supports 'poster', use the closest Zenodo publication type.
+PUBLICATION_TYPE="proposal"
+
+KEYWORDS=(
+    cognition
+    psychology
+    neuroscience
+    artificial-intelligence
+    cognitive-science
+    mentation
+    mentative-identity
+    cognitive-development
+    geometry-of-self
+    differential-geometry
+    topology
+    dynamical-systems
+    state-space
+    manifold
+    information-theory
+    education
+    computational-neuroscience
+    philosophy-of-mind
+    mathematical-psychology
+    5domm
+)
