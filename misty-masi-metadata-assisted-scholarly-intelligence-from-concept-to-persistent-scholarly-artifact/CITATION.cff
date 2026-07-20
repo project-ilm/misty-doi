@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: "MISTY MASI: Metadata-Assisted Scholarly Intelligence — From Concept to Persistent Scholarly Artifact"
+version: "1.0.0"
+
+authors:
+  - family-names: Choudhary
+    given-names: Abhishek
+
+license: GPL-3.0
