@@ -37,7 +37,11 @@ class ZenodoClient:
         if sandbox is None:
             sandbox = os.environ.get("ZENODO_SANDBOX", "").lower() in _TRUTHY
         self.sandbox = bool(sandbox)
-        self.base = SANDBOX_API if self.sandbox else PROD_API
+        # An explicit override exists so the flow can be exercised against a
+        # local stand-in. Live Zenodo is never contacted by the test suite:
+        # minting is irreversible, and a test that mints cannot be re-run.
+        override = os.environ.get("ZENODO_API_BASE")
+        self.base = override or (SANDBOX_API if self.sandbox else PROD_API)
         self.timeout = timeout
         self.retries = max(1, retries)
 
@@ -121,3 +125,97 @@ class ZenodoClient:
             "publish",
         )
         return resp.json()
+
+    # -- versioning -------------------------------------------------------- #
+    def get_deposition(self, dep_id: int) -> Dict[str, Any]:
+        return self._check(
+            self._request("GET", f"{self.base}/deposit/depositions/{dep_id}"),
+            f"get deposition {dep_id}",
+        ).json()
+
+    def get_by_url(self, url: str) -> Dict[str, Any]:
+        return self._check(self._request("GET", url), f"get {url}").json()
+
+    def list_depositions(self, size: int = 100, all_versions: bool = True,
+                         max_pages: int = 50) -> list:
+        """Every deposition the token can see, paginated.
+
+        ``all_versions`` matters: without it Zenodo hides superseded versions,
+        which is exactly the history an audit needs to see.
+        """
+        out: list = []
+        for page in range(1, max_pages + 1):
+            params = {"page": page, "size": size, "sort": "mostrecent"}
+            if all_versions:
+                params["all_versions"] = "true"
+            resp = self._check(
+                self._request("GET", f"{self.base}/deposit/depositions", params=params),
+                f"list depositions page {page}",
+            )
+            batch = resp.json()
+            if not batch:
+                break
+            out.extend(batch)
+            if len(batch) < size:
+                break
+        return out
+
+    def new_version(self, dep_id: int) -> Dict[str, Any]:
+        """Open a new version draft of a PUBLISHED deposition.
+
+        This is the action ``publish`` cannot substitute for. ``publish`` always
+        mints a brand-new concept DOI; ``newversion`` keeps the concept DOI and
+        adds a version DOI beneath it. Using the wrong one is unrecoverable
+        without contacting Zenodo support, so it is worth being exact.
+
+        Returns the NEW DRAFT deposition (already fetched), not the response to
+        the action, because the action's payload describes the parent.
+        """
+        resp = self._check(
+            self._request(
+                "POST",
+                f"{self.base}/deposit/depositions/{dep_id}/actions/newversion",
+            ),
+            f"new version of {dep_id}",
+        )
+        parent = resp.json()
+        draft_url = (parent.get("links", {}) or {}).get("latest_draft")
+        if not draft_url:
+            raise ZenodoError(
+                f"Zenodo accepted newversion for {dep_id} but returned no "
+                "links.latest_draft — refusing to guess the draft id"
+            )
+        return self.get_by_url(draft_url)
+
+    def delete_file(self, dep_id: int, file_id: str) -> None:
+        self._check(
+            self._request(
+                "DELETE", f"{self.base}/deposit/depositions/{dep_id}/files/{file_id}"
+            ),
+            f"delete file {file_id}",
+        )
+
+    def clear_files(self, dep_id: int) -> int:
+        """Remove every file inherited by a new-version draft.
+
+        A newversion draft arrives carrying the previous version's files. If you
+        upload replacements without clearing, the record ends up with both, and
+        the old ones are indistinguishable from the new to anyone downloading.
+        """
+        dep = self.get_deposition(dep_id)
+        removed = 0
+        for f in dep.get("files", []) or []:
+            fid = f.get("id") or f.get("file_id")
+            if fid:
+                self.delete_file(dep_id, fid)
+                removed += 1
+        return removed
+
+    def discard_draft(self, dep_id: int) -> None:
+        """Throw away an unpublished draft — the only safe undo there is."""
+        self._check(
+            self._request(
+                "POST", f"{self.base}/deposit/depositions/{dep_id}/actions/discard"
+            ),
+            f"discard draft {dep_id}",
+        )

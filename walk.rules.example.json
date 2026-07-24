@@ -1,0 +1,16 @@
+{
+  "_note": "Rules for `misty walk`. Everything here is yours to set; the tool hard-codes nothing about any estate.",
+  "_copyright": "© 1993–2026 Abhishek Choudhary. All rights reserved.",
+  "affiliation_must_be": "AyeAI",
+  "forbidden_strings": ["Independent Researcher", "kaivalyikagi.org"],
+  "forbidden_affiliations": [],
+  "expected_orcid": "0009-0002-0684-8320",
+  "require_version": true,
+  "require_license": true,
+  "require_description": true,
+  "min_description_chars": 40,
+  "copyright_contains": "© 1993–2026 Abhishek Choudhary",
+  "known_facts": {
+    "PEDLER": { "publication_date": "2001-11-01" }
+  }
+}
