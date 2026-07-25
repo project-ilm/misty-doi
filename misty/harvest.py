@@ -78,8 +78,18 @@ def download(client, records: List[Dict[str, Any]], outroot: str) -> Dict[str, A
                   indent=2, ensure_ascii=False)
         for f in r.get("files", []) or []:
             name = f.get("key") or f.get("filename") or f.get("id")
-            link = ((f.get("links") or {}).get("download")
-                    or (f.get("links") or {}).get("self"))
+            # A published deposition still carries deposit-draft file links, and
+            # those 404 once the record is published. The published bytes live
+            # under the record API. Try that first, fall back to whatever the
+            # record itself offers.
+            base = client.base.rstrip("/")
+            candidates = [
+                f"{base}/records/{rid}/files/{name}/content",
+                (f.get("links") or {}).get("download"),
+                (f.get("links") or {}).get("content"),
+                (f.get("links") or {}).get("self"),
+            ]
+            link = next((c for c in candidates if c), None)
             dest = os.path.join(d, name)
             if os.path.exists(dest) and f.get("checksum", "").endswith(
                     hashlib.md5(open(dest, "rb").read()).hexdigest()):
@@ -88,15 +98,22 @@ def download(client, records: List[Dict[str, Any]], outroot: str) -> Dict[str, A
             if not link:
                 failed.append((doi, name, "no download link in the record"))
                 continue
-            try:
-                with client._session.get(link, stream=True, timeout=300) as resp:
-                    resp.raise_for_status()
-                    with open(dest, "wb") as fh:
-                        for chunk in resp.iter_content(1 << 20):
-                            fh.write(chunk)
-                got.append(dest)
-            except Exception as exc:
-                failed.append((doi, name, f"{type(exc).__name__}: {exc}"))
+            last = None
+            ok = False
+            for cand in [c for c in candidates if c]:
+                try:
+                    with client._session.get(cand, stream=True, timeout=600) as resp:
+                        resp.raise_for_status()
+                        with open(dest, "wb") as fh:
+                            for chunk in resp.iter_content(1 << 20):
+                                fh.write(chunk)
+                    got.append(dest)
+                    ok = True
+                    break
+                except Exception as exc:
+                    last = f"{type(exc).__name__}: {exc}"
+            if not ok:
+                failed.append((doi, name, last or "no usable link"))
     return {"downloaded": got, "already_present": skipped, "failed": failed}
 
 
