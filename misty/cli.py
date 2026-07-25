@@ -204,6 +204,8 @@ def cmd_newversion(args) -> int:
     for r in file_records:
         _log(f"sha256 {r['name']}: {r['sha256']}")
 
+    if not _guard_gate(m, args.files, args):
+        return 4
     if args.dry_run:
         _log(f"dry-run: would open a new version of {args.record} as {version}")
         _emit(result.build(deposition_id=None, bucket=None,
@@ -363,6 +365,82 @@ def cmd_harvest(args) -> int:
     return EXIT_OK
 
 
+
+def _guard_gate(meta, files, args) -> bool:
+    """Run the leakage guard before anything irreversible. Returns True to proceed.
+
+    Fails closed: an ERROR-class finding stops the mint unless --allow-findings is
+    passed with eyes open. WARN-class findings are printed and do not block.
+    """
+    if getattr(args, "no_guard", False):
+        _log("guard: skipped (--no-guard)")
+        return True
+    from . import guard as _g
+    rules = _g.DEFAULT_RULES
+    if getattr(args, "guard_rules", None):
+        rules = dict(rules); rules.update(json.load(open(args.guard_rules, encoding="utf-8")))
+    refs = []
+    for rp in (getattr(args, "reference", None) or []):
+        try: refs.append(open(rp, encoding="utf-8", errors="replace").read())
+        except OSError: _log(f"guard: reference not readable: {rp}")
+    res = _g.scan_deposit(meta, files=[getattr(f, "name", f) for f in files] if files else None,
+                          references=refs, rules=rules)
+    for f in res["findings"]:
+        _log("  guard %-5s %-10s %-14s %s %s" % (
+            f["severity"], f["kind"], f["where"], f["message"],
+            ("[" + f["sample"] + "]") if f["sample"] else ""))
+    _log("guard: %d error(s), %d warning(s)" % (res["counts"]["ERROR"], res["counts"]["WARN"]))
+    if not res["clear"] and not getattr(args, "allow_findings", False):
+        _log("guard: ERROR-class findings block the mint. Fix them, or re-run with "
+             "--allow-findings and a reason if you are certain they are false positives.")
+        return False
+    return True
+
+
+def cmd_guard(args) -> int:
+    """Scan a deposit for leakage without minting anything."""
+    from . import guard as _g
+    meta = metadata.load_validate_normalize(args.metadata) if args.metadata else json.load(open(args.json))
+    rules = _g.DEFAULT_RULES
+    if args.guard_rules:
+        rules = dict(rules); rules.update(json.load(open(args.guard_rules, encoding="utf-8")))
+    refs = [open(r, encoding="utf-8", errors="replace").read() for r in (args.reference or [])]
+    res = _g.scan_deposit(meta, files=args.files or None, references=refs, rules=rules)
+    for f in res["findings"]:
+        print("  %-5s %-10s %-14s %s %s" % (f["severity"], f["kind"], f["where"],
+              f["message"], ("[" + f["sample"] + "]") if f["sample"] else ""), file=sys.stderr)
+    _log("%d error(s), %d warning(s); %s" % (
+        res["counts"]["ERROR"], res["counts"]["WARN"],
+        "CLEAR" if res["clear"] else "BLOCKED"))
+    if args.output:
+        _emit(res, args.output)
+    return 0 if res["clear"] else 1
+
+
+def cmd_latest(args) -> int:
+    """Print the deposition id of the latest PUBLISHED version of a concept.
+
+    Removes the donkey work of hunting the id by hand before `newversion`.
+    """
+    from .zenodo import ZenodoClient
+    client = ZenodoClient(token=args.token, sandbox=args.sandbox)
+    want = str(args.concept).strip().split("/")[-1]     # accept DOI or bare id
+    deps = client.list_depositions(all_versions=True)
+    pub = [d for d in deps
+           if (d.get("state") == "done" or d.get("submitted"))
+           and (str((d.get("conceptrecid") or "")) == want
+                or (d.get("conceptdoi") or "").endswith(want)
+                or str(d.get("id")) == want)]
+    if not pub:
+        _log(f"no published version found for concept {args.concept}")
+        return 1
+    latest = max(pub, key=lambda d: d.get("id", 0))
+    print(latest["id"])
+    _log(f"latest published version of {args.concept}: deposition {latest['id']} "
+         f"(doi {latest.get('doi')})")
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # parser
 # --------------------------------------------------------------------------- #
@@ -442,6 +520,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-publish", action="store_true")
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--output", default=None)
+    s.add_argument("--no-guard", action="store_true", help="skip the leakage guard (not advised)")
+    s.add_argument("--allow-findings", action="store_true", help="proceed despite guard ERRORs")
+    s.add_argument("--guard-rules", default=None, help="JSON overriding guard rules")
+    s.add_argument("--reference", nargs="*", default=None, help="reference texts for the plagiarism check")
     s.set_defaults(func=cmd_newversion, sandbox=None)
 
     s = sub.add_parser("discard", help="discard an unpublished draft")
@@ -490,6 +572,23 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--token", default=None)
     s.add_argument("--sandbox", action="store_true")
     s.set_defaults(func=cmd_harvest, sandbox=None)
+
+    s = sub.add_parser("guard", help="scan a deposit for secrets, PII, IPR leakage, "
+                                     "clean-room and patent issues — no mint")
+    g = s.add_mutually_exclusive_group(required=True)
+    g.add_argument("-m", "--metadata", default=None)
+    g.add_argument("--json", default=None, help="raw metadata JSON (already Zenodo-shaped)")
+    s.add_argument("-f", "--files", nargs="*", default=None)
+    s.add_argument("--reference", nargs="*", default=None)
+    s.add_argument("--guard-rules", default=None)
+    s.add_argument("--output", default=None)
+    s.set_defaults(func=cmd_guard)
+
+    s = sub.add_parser("latest", help="print the latest published deposition id for a concept")
+    s.add_argument("-c", "--concept", required=True, help="concept DOI or record id")
+    s.add_argument("--token", default=None)
+    s.add_argument("--sandbox", action="store_true")
+    s.set_defaults(func=cmd_latest, sandbox=None)
 
     return p
 

@@ -52,7 +52,8 @@ cat > meta.json <<'JSON'
   "creators": [{"name": "Choudhary, Abhishek", "affiliation": "AyeAI", "orcid": "0009-0002-0684-8320"}],
   "keywords": ["astronomy", "calendars"],
   "related_identifiers": [],
-  "repository": "https://github.com/project-ilm/chakra"
+  "repository": "https://github.com/project-ilm/chakra",
+  "author_verified": true
 }
 JSON
 echo "v1 payload" > art.txt
