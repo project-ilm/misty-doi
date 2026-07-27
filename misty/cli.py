@@ -25,7 +25,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-from . import __version__, kit, metadata, ots, package, result, transform
+from . import __version__, kit, masi, metadata, ots, package, result, transform
 from .errors import MistyError
 
 EXIT_OK = 0
@@ -475,6 +475,81 @@ def cmd_kit(args) -> int:
     return EXIT_OK
 
 
+def cmd_masi(args) -> int:
+    """MASI workflows: concept to persistent scholarly artifact."""
+    root = args.root
+    act = args.action
+
+    if act == "tracks":
+        for name in sorted(masi.TRACKS):
+            t = masi.TRACKS[name]
+            _log(f"{name:<12} {t['label']}")
+            _log("             " + " -> ".join(t["states"]))
+            _log("             " + t["note"])
+        return EXIT_OK
+
+    if act == "new":
+        m = masi.new(args.slug, args.track, args.title or "", root, args.link or [])
+        if args.set: m = masi.set_facts(m, args.set); masi.save(m, root)
+        _log(f"{m['slug']} created on track {m['track']!r} at {m['state']!r}")
+        _emit(m, args.output)
+        return EXIT_OK
+
+    if act == "list":
+        ms = masi.all_matters(root)
+        if not ms:
+            _log(f"no matters under {root}/")
+        for m in ms:
+            ok, errs = masi.mintable(m, root)
+            _log(f"{m['slug']:<28} {m['track']:<11} {m['state']:<22} "
+                 f"{'' if ok else 'BLOCKED: ' + errs[0]}")
+        _emit(ms, args.output)
+        return EXIT_OK
+
+    m = masi.load(args.slug, root)
+
+    if act == "status":
+        _log(masi.render(m, root)); _emit(m, args.output); return EXIT_OK
+
+    if act == "set":
+        m = masi.set_facts(m, args.set or []); masi.save(m, root)
+        _log(f"{m['slug']}: " + ", ".join(f"{k}={v}" for k, v in sorted(m["facts"].items())))
+        _emit(m, args.output); return EXIT_OK
+
+    if act == "link":
+        for s in args.link or []:
+            if s not in m["links"]: m["links"].append(s)
+        masi.save(m, root)
+        _log(f"{m['slug']} links: " + ", ".join(m["links"]))
+        _emit(m, args.output); return EXIT_OK
+
+    if act == "state":
+        if args.set: m = masi.set_facts(m, args.set)
+        m = masi.advance(m, args.to, args.note or "", root, args.force)
+        _log(f"{m['slug']} -> {m['state']}")
+        for i, sev, msg in masi.gates(m, root):
+            if sev != "ok": _log(f"  {sev} {i}: {msg}")
+        _emit(m, args.output); return EXIT_OK
+
+    if act == "review":
+        m = masi.add_review(m, args.round, args.decision, args.reviewer or "",
+                            args.note or "", args.received_on or "", root)
+        _log(f"{m['slug']}: round {args.round} {args.decision}")
+        _emit(m, args.output); return EXIT_OK
+
+    if act == "gate":
+        rows = masi.gates(m, root)
+        for i, sev, msg in rows:
+            _log(f"{sev:<5} {i:<3} {msg}")
+        ok, errs = masi.mintable(m, root)
+        _log("MINTABLE" if ok else "BLOCKED")
+        _emit({"slug": m["slug"], "mintable": ok, "gates":
+               [{"id": i, "severity": s, "message": g} for i, s, g in rows]}, args.output)
+        return EXIT_OK if ok else EXIT_ERROR
+
+    raise MistyError(f"unknown masi action {act!r}")
+
+
 def cmd_latest(args) -> int:
     """Print the deposition id of the latest PUBLISHED version of a concept.
 
@@ -667,6 +742,26 @@ def build_parser() -> argparse.ArgumentParser:
                    help="do not require the author to set author_verified before minting")
     s.add_argument("-o", "--output", default=None)
     s.set_defaults(func=cmd_kit)
+
+    s = sub.add_parser("masi", help="MASI workflows: prereg, ethics, paper, journal, "
+                                    "conference, chapter, patent")
+    s.add_argument("action", choices=["new", "state", "review", "set", "link",
+                                      "gate", "status", "list", "tracks"])
+    s.add_argument("slug", nargs="?", default=None)
+    s.add_argument("--track", choices=sorted(masi.TRACKS), default=None)
+    s.add_argument("--title", default=None)
+    s.add_argument("--to", default=None, help="state to move to")
+    s.add_argument("--note", default=None)
+    s.add_argument("--set", action="append", default=None, metavar="KEY=VALUE")
+    s.add_argument("--link", action="append", default=None, metavar="SLUG")
+    s.add_argument("--round", type=int, default=1)
+    s.add_argument("--decision", choices=masi.REVIEW_DECISIONS, default=None)
+    s.add_argument("--reviewer", default=None)
+    s.add_argument("--received-on", dest="received_on", default=None)
+    s.add_argument("--force", action="store_true", help="override a refused transition")
+    s.add_argument("--root", default=masi.ROOT)
+    s.add_argument("-o", "--output", default=None)
+    s.set_defaults(func=cmd_masi)
 
     s = sub.add_parser("latest", help="print the latest published deposition id for a concept")
     s.add_argument("-c", "--concept", required=True, help="concept DOI or record id")
