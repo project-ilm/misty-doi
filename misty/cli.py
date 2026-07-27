@@ -25,7 +25,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-from . import __version__, metadata, ots, package, result, transform
+from . import __version__, kit, metadata, ots, package, result, transform
 from .errors import MistyError
 
 EXIT_OK = 0
@@ -417,6 +417,64 @@ def cmd_guard(args) -> int:
     return 0 if res["clear"] else 1
 
 
+def cmd_kit(args) -> int:
+    """Build a ready-to-mint kit per author from a record list."""
+    with open(args.records, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    rows = doc
+    if isinstance(doc, dict):
+        key = args.records_path or next(
+            (k for k in ("records", "items", "entries", "posts") if isinstance(doc.get(k), list)),
+            None,
+        )
+        if key is None:
+            raise MistyError("no record list found; pass --records-path")
+        rows = doc[key]
+
+    grouped = kit.group_records(rows, author_key=args.group_by)
+    if not grouped:
+        raise MistyError("no attributed records — every row lacks %r" % args.group_by)
+
+    os.makedirs(args.outdir, exist_ok=True)
+    entries = []
+    for author, arts in sorted(grouped.items(), key=lambda kv: -len(kv[1])):
+        for a in arts:
+            if args.proofs_from and a.get("sha256"):
+                stem = a["sha256"][: args.proof_prefix]
+                cand = os.path.join(args.proofs_from, f"{stem}.sha256.ots")
+                a["proof"] = cand if os.path.exists(cand) else None
+        draft = {
+            "title": args.title_template.format(author=author, n=len(arts)),
+            "upload_type": args.upload_type,
+            "description": args.description_template.format(author=author, n=len(arts)),
+            "license": args.license,
+            "language": args.language,
+            "creators": [{"name": author, "affiliation": "", "orcid": ""}],
+            "keywords": args.keywords or [],
+        }
+        if args.related:
+            draft["related_identifiers"] = [
+                {"identifier": args.related, "relation": "isDerivedFrom", "scheme": "url"}
+            ]
+        entries.append(
+            kit.build_kit(
+                args.outdir,
+                author,
+                draft,
+                arts,
+                proofs_from=args.proofs_from,
+                strict_verify=not args.no_verify_gate,
+            )
+        )
+
+    idx = kit.write_index(args.outdir, entries)
+    skipped = sum(1 for r in rows if not (r.get(args.group_by) or "").strip())
+    _log(f"{len(entries)} kits in {args.outdir}; {skipped} unattributed records got none")
+    _emit({"kits": len(entries), "index": idx, "unattributed": skipped,
+           "entries": entries}, args.output)
+    return EXIT_OK
+
+
 def cmd_latest(args) -> int:
     """Print the deposition id of the latest PUBLISHED version of a concept.
 
@@ -583,6 +641,32 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--guard-rules", default=None)
     s.add_argument("--output", default=None)
     s.set_defaults(func=cmd_guard)
+
+    s = sub.add_parser(
+        "kit",
+        help="build a ready-to-mint kit per author (they mint, under their own token)",
+    )
+    s.add_argument("--records", required=True, help="JSON file holding the record list")
+    s.add_argument("--records-path", default=None, help="key of the list inside that file")
+    s.add_argument("--group-by", default="author", help="record field naming the author")
+    s.add_argument("--outdir", default="author-kits")
+    s.add_argument("--proofs-from", default=None, help="directory of existing .ots proofs")
+    s.add_argument("--proof-prefix", type=int, default=16,
+                   help="hex prefix length used to name proof files")
+    s.add_argument("--license", default="cc-by-4.0")
+    s.add_argument("--upload-type", default="publication")
+    s.add_argument("--language", default="eng")
+    s.add_argument("--keywords", nargs="*", default=None)
+    s.add_argument("--related", default=None, help="source URL, recorded as isDerivedFrom")
+    s.add_argument("--title-template", default="Collected works of {author}")
+    s.add_argument("--description-template",
+                   default="{n} items authored by {author}, listed with their addresses "
+                           "and content digests. Drafted with machine assistance; the "
+                           "author is responsible for scholarly accuracy.")
+    s.add_argument("--no-verify-gate", action="store_true",
+                   help="do not require the author to set author_verified before minting")
+    s.add_argument("-o", "--output", default=None)
+    s.set_defaults(func=cmd_kit)
 
     s = sub.add_parser("latest", help="print the latest published deposition id for a concept")
     s.add_argument("-c", "--concept", required=True, help="concept DOI or record id")
