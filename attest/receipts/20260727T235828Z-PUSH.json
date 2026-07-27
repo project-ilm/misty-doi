@@ -1,0 +1,18 @@
+{
+    "_type": "https://in-toto.io/Statement/v1",
+    "predicateType": "https://project-ilm.org/attestations/candor/v1",
+    "subject": [
+        {
+            "name": "project-ilm/misty-doi",
+            "digest": {
+                "gitCommit": "3393d960b33c380f6c50912c1835102651cd87e9"
+            }
+        }
+    ],
+    "predicate": {
+        "action": "PUSH",
+        "reason": "seed masi",
+        "utc": "20260727T235828Z",
+        "host": "ilm01-lin"
+    }
+}
