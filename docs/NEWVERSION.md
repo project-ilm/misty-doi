@@ -44,3 +44,13 @@ lands on the record; and the walk detects a deliberately split lineage.
 
 Point the client at a stand-in with `ZENODO_API_BASE`. Against the real service,
 sandbox first: `ZENODO_SANDBOX=1`.
+
+## 1.2.0: from the concept, and corrections without a new DOI
+
+    misty newversion -c 10.5281/zenodo.<concept> -m misty.json -f build.tar.gz
+    misty update     -c 10.5281/zenodo.<concept> -m misty.json
+
+`-c` takes the concept DOI (a version DOI is resolved to its concept). The latest published
+version is looked up; `-r`, when given, must be that latest. A version string the latest
+already carries is refused. `update` corrects metadata on the latest version through
+Zenodo's edit action, keeping its DOI and files, and refuses a changed version string.

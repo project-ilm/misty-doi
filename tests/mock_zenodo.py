@@ -10,7 +10,7 @@ service.
 
 Run: python3 mock_zenodo.py <port>
 """
-import json, re, sys, threading
+import datetime, json, os, re, sys, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 STATE = {"next_id": 1000, "dep": {}, "concept": {}, "next_concept": 500}
@@ -51,6 +51,25 @@ def new_dep(concept_id=None, inherit_from=None):
         return dep
 
 
+def preload(path):
+    """MOCK_STATE: a JSON list of published records to start from, as
+    {"id", "conceptrecid", "version", "title", "files": [names]}."""
+    for r in json.load(open(path, encoding="utf-8")):
+        did, cid = int(r["id"]), int(r["conceptrecid"])
+        STATE["dep"][did] = {
+            "id": did, "conceptrecid": cid, "conceptdoi": f"10.5281/zenodo.{cid}",
+            "doi": f"10.5281/zenodo.{did}", "state": "done", "submitted": True,
+            "metadata": {"title": r.get("title", ""), "version": r.get("version", ""),
+                         "doi": f"10.5281/zenodo.{did}"},
+            "files": [{"id": f"f{i + 1}-{did}", "key": n, "filename": n, "size": 1}
+                      for i, n in enumerate(r.get("files", []))],
+            "links": {"bucket": f"{BASE()}/api/files/bucket-{did}",
+                      "self": f"{BASE()}/api/deposit/depositions/{did}", "html": f"{BASE()}/record/{did}"}}
+        STATE["concept"].setdefault(cid, []).append(did)
+        STATE["next_id"] = max(STATE["next_id"], did)
+        STATE["next_concept"] = max(STATE["next_concept"], cid)
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -84,14 +103,30 @@ class H(BaseHTTPRequestHandler):
             if action == "publish":
                 if not dep["files"]:
                     return self._send(400, {"message": "a record must have files"})
+                editing = dep["state"] == "inprogress"
                 dep["state"], dep["submitted"] = "done", True
-                dep["doi"] = f"10.5281/zenodo.{dep['id']}"
+                if not editing:  # an edit keeps its DOI; a first publish assigns one
+                    dep["doi"] = f"10.5281/zenodo.{dep['id']}"
                 dep["metadata"]["doi"] = dep["doi"]
+                dep["metadata"].setdefault("publication_date", datetime.date.today().isoformat())
                 return self._send(202, dep)
+            if action == "edit":
+                if dep["state"] != "done":
+                    return self._send(400, {"message": "only a published record can be edited"})
+                dep["state"] = "inprogress"
+                return self._send(201, dep)
             if action == "newversion":
                 if dep["state"] != "done":
                     return self._send(403, {"message": "can only version a published record"})
-                draft = new_dep(concept_id=dep["conceptrecid"], inherit_from=did)
+                lineage = [STATE["dep"][i] for i in STATE["concept"][dep["conceptrecid"]] if i in STATE["dep"]]
+                done = [d for d in lineage if d["state"] == "done"]
+                if did != max(d["id"] for d in done):
+                    return self._send(400, {"message": "the record is not the latest version"})
+                open_ = [d for d in lineage if d["state"] == "unsubmitted"]
+                draft = open_[0] if open_ else new_dep(concept_id=dep["conceptrecid"], inherit_from=did)
+                draft["metadata"]["prereserve_doi"] = {"doi": f"10.5281/zenodo.{draft['id']}", "recid": draft["id"]}
+                if os.environ.get("MOCK_RDM_SHAPE") == "1":  # some deployments answer with the draft itself
+                    return self._send(201, draft)
                 parent = json.loads(json.dumps(dep))
                 parent["links"]["latest_draft"] = f"{BASE()}/api/deposit/depositions/{draft['id']}"
                 return self._send(201, parent)
@@ -118,7 +153,14 @@ class H(BaseHTTPRequestHandler):
             did = int(m.group(1))
             body, _ = self._body()
             dep = STATE["dep"][did]
-            dep["metadata"].update(body.get("metadata", {}))
+            if dep["state"] == "done":
+                return self._send(400, {"message": "a published record is locked; edit it first"})
+            meta = body.get("metadata", {})
+            reserved = (dep["metadata"].get("prereserve_doi") or {}).get("doi")
+            if meta.get("doi") and meta["doi"] != (reserved or dep.get("doi")):
+                return self._send(400, {"message": f"DOI {meta['doi']} belongs to another record"})
+            kept = {k: v for k, v in dep["metadata"].items() if k in ("prereserve_doi", "doi")}
+            dep["metadata"] = {**meta, **kept}  # PUT replaces the metadata; server-held keys survive
             return self._send(200, dep)
         self._send(404, {"message": "not found"})
 
@@ -154,5 +196,7 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    if os.environ.get("MOCK_STATE"):
+        preload(os.environ["MOCK_STATE"])
     print(f"mock zenodo on {BASE()}", flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()

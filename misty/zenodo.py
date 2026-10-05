@@ -11,6 +11,7 @@ Credentials come from the ``ZENODO_TOKEN`` environment variable by default
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any, Dict, Optional, Tuple
 
@@ -161,15 +162,17 @@ class ZenodoClient:
         return out
 
     def new_version(self, dep_id: int) -> Dict[str, Any]:
-        """Open a new version draft of a PUBLISHED deposition.
+        """Open (or reopen) the new-version draft of a PUBLISHED deposition.
 
-        This is the action ``publish`` cannot substitute for. ``publish`` always
-        mints a brand-new concept DOI; ``newversion`` keeps the concept DOI and
-        adds a version DOI beneath it. Using the wrong one is unrecoverable
-        without contacting Zenodo support, so it is worth being exact.
+        ``publish`` always mints a brand-new concept DOI; ``newversion`` keeps the
+        concept DOI and adds a version DOI beneath it. Using the wrong one is
+        unrecoverable without Zenodo support.
 
-        Returns the NEW DRAFT deposition (already fetched), not the response to
-        the action, because the action's payload describes the parent.
+        Zenodo documents that this action answers with the PARENT record and puts
+        the draft under ``links.latest_draft``; some deployments answer with the
+        draft itself. Both are accepted, because both are unambiguous: the draft
+        is either named by the link or is the body. Anything else is refused.
+        Returns the draft, already fetched.
         """
         resp = self._check(
             self._request(
@@ -178,14 +181,47 @@ class ZenodoClient:
             ),
             f"new version of {dep_id}",
         )
-        parent = resp.json()
-        draft_url = (parent.get("links", {}) or {}).get("latest_draft")
-        if not draft_url:
+        body = resp.json()
+        draft_url = (body.get("links", {}) or {}).get("latest_draft")
+        if draft_url:
+            draft = self.get_by_url(draft_url)
+        elif body.get("id") is not None and int(body["id"]) != int(dep_id) \
+                and not body.get("submitted"):
+            draft = body
+        else:
             raise ZenodoError(
-                f"Zenodo accepted newversion for {dep_id} but returned no "
-                "links.latest_draft — refusing to guess the draft id"
+                f"Zenodo accepted newversion for {dep_id} but named no draft "
+                "(no links.latest_draft and the body is not a draft); refusing to guess"
             )
-        return self.get_by_url(draft_url)
+        if draft.get("submitted") or draft.get("state") == "done":
+            raise ZenodoError(f"the version draft {draft.get('id')} is already published; "
+                              "refusing to modify a published record as if it were a draft")
+        want = body.get("conceptrecid") or draft.get("conceptrecid")
+        if want is not None and str(draft.get("conceptrecid")) != str(want):
+            raise ZenodoError(f"the draft {draft.get('id')} belongs to concept "
+                              f"{draft.get('conceptrecid')}, not {want}; refusing")
+        return draft
+
+    def edit(self, dep_id: int) -> Dict[str, Any]:
+        """Unlock a PUBLISHED deposition's metadata for correction. Files stay locked."""
+        return self._check(
+            self._request("POST", f"{self.base}/deposit/depositions/{dep_id}/actions/edit"),
+            f"edit {dep_id}",
+        ).json()
+
+    def lineage(self, concept: str) -> Tuple[Optional[Dict[str, Any]], list]:
+        """(the latest PUBLISHED version of a concept, its unpublished drafts).
+
+        The latest is the published deposition with the highest id under the
+        concept: Zenodo allots ids in creation order and only the latest version
+        may be versioned again.
+        """
+        deps = [d for d in self.list_depositions(all_versions=True)
+                if str(d.get("conceptrecid") or "") == str(concept)]
+        published = [d for d in deps if d.get("submitted") or d.get("state") == "done"]
+        drafts = [d for d in deps if not (d.get("submitted") or d.get("state") == "done")]
+        latest = max(published, key=lambda d: int(d.get("id", 0))) if published else None
+        return latest, drafts
 
     def delete_file(self, dep_id: int, file_id: str) -> None:
         self._check(
@@ -219,3 +255,12 @@ class ZenodoClient:
             ),
             f"discard draft {dep_id}",
         )
+
+
+def concept_id(value: Any) -> str:
+    """A concept given as a DOI, a DOI URL, 'zenodo.N' or N, as the bare record id."""
+    v = str(value).strip().rstrip("/")
+    m = re.search(r"(\d+)$", v)
+    if not m:
+        raise ValueError(f"not a Zenodo concept DOI or record id: {value}")
+    return m.group(1)

@@ -11,3 +11,5 @@ result.json
 .venv/
 .env
 ZENODO_DOI.txt
+.test-versions-*/
+.e2e-proof/

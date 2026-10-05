@@ -174,17 +174,69 @@ def cmd_publish(args) -> int:
 
 
 
+def _resolve_lineage(client, args):
+    """(concept id, latest published version, open drafts), or an error string.
+
+    The record to version is always the LATEST published version of its concept.
+    Given a concept, it is looked up; given a record, its concept is read and the
+    record must be that latest, because Zenodo versions only the latest.
+    """
+    from .zenodo import concept_id
+    concept = concept_id(args.concept) if getattr(args, "concept", None) else None
+    rec = int(args.record) if getattr(args, "record", None) else None
+    if concept is None:
+        if rec is None:
+            return None, None, None, "give -c/--concept (the concept DOI) or -r/--record"
+        concept = str(client.get_deposition(rec).get("conceptrecid") or "")
+        if not concept:
+            return None, None, None, f"deposition {rec} names no concept"
+    latest, drafts = client.lineage(concept)
+    if latest is None and getattr(args, "concept", None):
+        # A version DOI given where the concept was meant: read its concept and go on.
+        try:
+            dep = client.get_deposition(int(concept))
+        except Exception:
+            dep = {}
+        if dep.get("conceptrecid") and str(dep["conceptrecid"]) != str(concept):
+            _log(f"{args.concept} is a version; its concept is {dep['conceptrecid']}")
+            concept = str(dep["conceptrecid"])
+            latest, drafts = client.lineage(concept)
+    if latest is None:
+        return concept, None, drafts, f"no published version under concept {concept}"
+    if rec is not None and rec != int(latest["id"]):
+        return concept, latest, drafts, (
+            f"{rec} is not the latest published version of concept {concept}; the latest is "
+            f"{latest['id']} ({latest.get('doi')}). A new version starts from the latest.")
+    return concept, latest, drafts, None
+
+
+def _lineage_relations(m, latest, concept):
+    """Drop related identifiers that point at this lineage: Zenodo manages those itself."""
+    own = {str(x).replace("https://doi.org/", "") for x in (
+        latest.get("doi"), latest.get("conceptdoi"), f"10.5281/zenodo.{concept}") if x}
+    kept, dropped = [], []
+    for r in m.get("related_identifiers") or []:
+        (dropped if str(r.get("identifier", "")).replace("https://doi.org/", "") in own else kept).append(r)
+    if dropped:
+        m["related_identifiers"] = kept
+        for r in dropped:
+            _log(f"dropped related identifier {r.get('identifier')} ({r.get('relation')}): "
+                 "version relations within one concept are Zenodo's to manage")
+    return m
+
+
 def cmd_newversion(args) -> int:
-    """Add a version to an existing lineage instead of minting a new concept.
+    """Add a version beneath an existing concept DOI instead of minting a new concept.
 
-    `publish` always creates a brand-new record with a brand-new concept DOI.
-    That is correct for a first deposit and wrong for everything after it. This
-    command is the other half: it keeps the concept DOI and hangs a new version
-    DOI beneath it, so a citation of the concept always resolves to the latest.
+    `publish` always creates a brand-new record with a brand-new concept DOI. That is
+    correct for a first deposit and wrong for everything after it. This command keeps
+    the concept DOI and hangs a new version DOI beneath it.
 
-    The step people get wrong is files: a new-version draft arrives carrying the
-    previous version's files. Uploading replacements without clearing leaves
-    both in the record. `--replace-files` (the default) clears first.
+    It starts from the latest published version (looked up from the concept, or
+    checked when a record is given), refuses a version string the latest already
+    carries, reopens a draft Zenodo already holds rather than stacking a second,
+    clears the files a version draft inherits (`--keep-files` to accumulate), and
+    never sends a DOI in the metadata: the version DOI is the registrar's to assign.
     """
     m = metadata.load_validate_normalize(args.metadata)
 
@@ -206,8 +258,8 @@ def cmd_newversion(args) -> int:
 
     if not _guard_gate(m, args.files, args):
         return 4
-    if args.dry_run:
-        _log(f"dry-run: would open a new version of {args.record} as {version}")
+    if args.dry_run and args.offline:
+        _log(f"dry-run (offline): would open a new version as {version}")
         _emit(result.build(deposition_id=None, bucket=None,
                            sandbox=bool(args.sandbox), files=file_records,
                            state="dry-run"), args.output)
@@ -217,11 +269,37 @@ def cmd_newversion(args) -> int:
     client = ZenodoClient(token=args.token, sandbox=args.sandbox)
     _log(f"target: {'SANDBOX' if client.sandbox else 'PRODUCTION'} ({client.base})")
 
-    draft = client.new_version(int(args.record))
+    concept, latest, drafts, err = _resolve_lineage(client, args)
+    if err:
+        _log(f"ERROR: {err}")
+        return 2
+    prev = str(((latest.get("metadata") or {}).get("version")) or "")
+    _log(f"concept {concept}: latest published version is {latest['id']} "
+         f"(doi {latest.get('doi')}, version {prev or 'unrecorded'})")
+    if prev and prev.strip() == str(version).strip():
+        _log(f"ERROR: version {version} is already the latest version's; a new version needs a new "
+             "version string (or, to correct the latest's metadata, use `misty update`)")
+        return 2
+    m = _lineage_relations(m, latest, concept)
+    if drafts:
+        _log(f"an unpublished version draft already exists under this concept "
+             f"({', '.join(str(d.get('id')) for d in drafts)}); Zenodo reopens it, and its "
+             "files are cleared before the upload")
+
+    if args.dry_run:
+        _log(f"dry-run: would open a new version of {latest['id']} as {version}; nothing uploaded")
+        res = result.build(deposition_id=None, bucket=None, sandbox=client.sandbox,
+                           files=file_records, concept_doi=f"10.5281/zenodo.{concept}", state="dry-run")
+        res["previous_record"], res["previous_doi"], res["previous_version"] = \
+            int(latest["id"]), latest.get("doi"), prev or None
+        _emit(res, args.output)
+        return EXIT_OK
+
+    draft = client.new_version(int(latest["id"]))
     dep_id = draft["id"]
     bucket = (draft.get("links", {}) or {}).get("bucket")
-    concept = draft.get("conceptdoi") or (draft.get("metadata", {}) or {}).get("conceptdoi")
-    _log(f"new version draft {dep_id} (concept {concept or 'unknown'})")
+    concept_doi = draft.get("conceptdoi") or f"10.5281/zenodo.{concept}"
+    _log(f"new version draft {dep_id} (concept {concept_doi})")
 
     if args.replace_files:
         n = client.clear_files(dep_id)
@@ -239,13 +317,73 @@ def cmd_newversion(args) -> int:
         _log(f"discard with: misty discard {dep_id}")
         _emit(result.build(deposition_id=dep_id, bucket=bucket,
                            sandbox=client.sandbox, files=file_records,
-                           concept_doi=concept, state="draft"), args.output)
+                           concept_doi=concept_doi, state="draft"), args.output)
         return EXIT_OK
 
     record = client.publish(dep_id)
     res = result.from_zenodo_record(record, sandbox=client.sandbox, files=file_records)
-    res["previous_record"] = int(args.record)
-    _log(f"PUBLISHED version doi={res['doi']} concept={res['concept_doi']}")
+    if str(record.get("conceptrecid") or concept) != str(concept):
+        _log(f"ERROR: the published version names concept {record.get('conceptrecid')}, not {concept}")
+        return 3
+    res["previous_record"], res["previous_doi"], res["previous_version"] = \
+        int(latest["id"]), latest.get("doi"), prev or None
+    _log(f"PUBLISHED version doi={res['doi']} concept={res['concept_doi']} (after {latest.get('doi')})")
+    _emit(res, args.output)
+    return EXIT_OK
+
+
+def cmd_update(args) -> int:
+    """Correct the metadata of a published version. Its DOI and its files do not change.
+
+    For a wrong title, description, keyword or creator field on a record already
+    minted. It refuses a different version string: a new version is
+    `misty newversion`, never an edit that relabels the old one.
+    """
+    m = metadata.load_validate_normalize(args.metadata)
+    from .zenodo import ZenodoClient
+    client = ZenodoClient(token=args.token, sandbox=args.sandbox)
+    _log(f"target: {'SANDBOX' if client.sandbox else 'PRODUCTION'} ({client.base})")
+    if args.record:
+        target = client.get_deposition(int(args.record))
+    else:
+        concept, latest, _, err = _resolve_lineage(client, args)
+        if err:
+            _log(f"ERROR: {err}")
+            return 2
+        target = latest
+    if not (target.get("submitted") or target.get("state") == "done"):
+        _log(f"ERROR: {target.get('id')} is not published; a draft is changed by publishing it, not by update")
+        return 2
+    cur = str(((target.get("metadata") or {}).get("version")) or "")
+    want = str(m.get("version") or cur)
+    if cur and want != cur:
+        _log(f"ERROR: the metadata says version {want}; the record is version {cur}. "
+             "A new version is `misty newversion`, never an edit of the old one")
+        return 2
+    if cur:
+        m["version"] = cur
+    body = transform.to_zenodo(m)
+    old = target.get("metadata") or {}
+    changed = sorted(k for k in body if body.get(k) != old.get(k))
+    _log(f"record {target['id']} (doi {target.get('doi')}): fields that change: {', '.join(changed) or 'none'}")
+    if args.dry_run:
+        _log("dry-run: nothing sent")
+        return EXIT_OK
+    if not changed:
+        _log("nothing to update")
+        return EXIT_OK
+    client.edit(int(target["id"]))
+    client.set_metadata(int(target["id"]), body)
+    if args.no_publish:
+        _log(f"edit left open; publish it from Zenodo or discard it with: misty discard {target['id']}")
+        return EXIT_OK
+    record = client.publish(int(target["id"]))
+    if record.get("doi") and target.get("doi") and record["doi"] != target["doi"]:
+        _log(f"ERROR: the DOI changed from {target['doi']} to {record['doi']}; an update must not mint")
+        return 3
+    res = result.from_zenodo_record(record, sandbox=client.sandbox, files=[])
+    res["updated_fields"] = changed
+    _log(f"UPDATED doi={res['doi']} fields={', '.join(changed)}")
     _emit(res, args.output)
     return EXIT_OK
 
@@ -551,26 +689,17 @@ def cmd_masi(args) -> int:
 
 
 def cmd_latest(args) -> int:
-    """Print the deposition id of the latest PUBLISHED version of a concept.
-
-    Removes the donkey work of hunting the id by hand before `newversion`.
-    """
-    from .zenodo import ZenodoClient
+    """Print the deposition id of the latest PUBLISHED version of a concept."""
+    from .zenodo import ZenodoClient, concept_id
     client = ZenodoClient(token=args.token, sandbox=args.sandbox)
-    want = str(args.concept).strip().split("/")[-1]     # accept DOI or bare id
-    deps = client.list_depositions(all_versions=True)
-    pub = [d for d in deps
-           if (d.get("state") == "done" or d.get("submitted"))
-           and (str((d.get("conceptrecid") or "")) == want
-                or (d.get("conceptdoi") or "").endswith(want)
-                or str(d.get("id")) == want)]
-    if not pub:
+    latest, drafts = client.lineage(concept_id(args.concept))
+    if latest is None:
         _log(f"no published version found for concept {args.concept}")
         return 1
-    latest = max(pub, key=lambda d: d.get("id", 0))
     print(latest["id"])
     _log(f"latest published version of {args.concept}: deposition {latest['id']} "
-         f"(doi {latest.get('doi')})")
+         f"(doi {latest.get('doi')}, version {(latest.get('metadata') or {}).get('version')})"
+         + (f"; open drafts: {', '.join(str(d.get('id')) for d in drafts)}" if drafts else ""))
     return 0
 
 
@@ -638,8 +767,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Unlike `publish`, this keeps the concept DOI and adds a "
                     "version beneath it. Use it for every deposit after the first.",
     )
-    s.add_argument("-r", "--record", required=True,
-                   help="deposition id of the LATEST published version")
+    s.add_argument("-r", "--record", default=None,
+                   help="deposition id of the latest published version (checked)")
+    s.add_argument("-c", "--concept", default=None,
+                   help="the concept DOI or id; the latest version is looked up")
     s.add_argument("-m", "--metadata", required=True)
     s.add_argument("-f", "--files", nargs="+", required=True)
     s.add_argument("--new-version", default=None,
@@ -657,7 +788,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--allow-findings", action="store_true", help="proceed despite guard ERRORs")
     s.add_argument("--guard-rules", default=None, help="JSON overriding guard rules")
     s.add_argument("--reference", nargs="*", default=None, help="reference texts for the plagiarism check")
+    s.add_argument("--offline", action="store_true",
+                   help="with --dry-run: make no network call at all (no lookup of the latest)")
     s.set_defaults(func=cmd_newversion, sandbox=None)
+
+    s = sub.add_parser(
+        "update",
+        help="correct the metadata of a published version (same DOI, same files)",
+        description="Edits a published record's metadata. Refuses a new version string: "
+                    "that is `misty newversion`.",
+    )
+    s.add_argument("-r", "--record", default=None, help="the published deposition to correct")
+    s.add_argument("-c", "--concept", default=None, help="or the concept; its latest version is corrected")
+    s.add_argument("-m", "--metadata", required=True)
+    s.add_argument("--token", default=None)
+    s.add_argument("--sandbox", action="store_true")
+    s.add_argument("--no-publish", action="store_true")
+    s.add_argument("--dry-run", action="store_true", help="look up and list the fields that change; send nothing")
+    s.add_argument("--output", default=None)
+    s.set_defaults(func=cmd_update, sandbox=None)
 
     s = sub.add_parser("discard", help="discard an unpublished draft")
     s.add_argument("record")

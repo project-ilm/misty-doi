@@ -6,7 +6,7 @@ packaging for research artifacts. No backend required.
 Project ILM. Copyright (C) 1993-2026 Abhishek Choudhary. GPL-3.0-or-later.
 """
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 __all__ = [
     "metadata",
     "transform",
